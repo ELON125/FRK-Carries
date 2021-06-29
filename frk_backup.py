@@ -6,31 +6,29 @@ from discord.ext.commands import has_permissions
 import time
 import json
 from discord.utils import get
-from discord_components import DiscordComponents, Button, ButtonStyle
 
-client = commands.Bot(command_prefix="f/")
+client = commands.Bot(command_prefix=".")
 
 @client.event
 async def on_ready():
   await client.change_presence(activity=discord.Game('FRK | Carries'))
-  DiscordComponents(client)
   print("Bot is online!")
 
-@client.command()
+@client.command(name='clear', help='this command will clear msgs')
 @commands.has_permissions(ban_members=True, kick_members=True)
 async def clear(message, amount = 5):
 	member = message.author
 	channel2 = await member.create_dm()
 	channel = client.get_channel(message.channel.id)
 	if message.channel.id == 810910208959840296:
+		print('Command stopped!')
 		await channel2.send("You cant use the .clear command in this channel!")
 	else:
 		if message.channel.id == 810910248755789835:
+			print('Command stopped! 2')
 			await channel.send("You cant use the .clear command in this channel!")
 		else:
 			await message.channel.purge(limit=amount)
-
-
 
 @client.command()
 async def embed(ctx):
@@ -41,42 +39,6 @@ async def embed(ctx):
     embedMessage = await ctx.send(embed=embed)
     await embedMessage.add_reaction('📩')
 
-
-@client.command()
-async def announce(ctx):
-    embed_maker = ctx.message.author
-    embed_title = "Click below to change Title"
-    embed_description = "Click below to change description" + '\n\n**FRK Marketplace**\nJoin our Marketplace discord below to buy cheese, spo0fers and accounts'
-    start_embed = discord.Embed(title='Click below to change Title', description="Click below to change description" + "\n\n**FRK Marketplace**\nJoin our Marketplace discord below to buy cheese, spo0fers and accounts")
-    start_embed.set_thumbnail(url="https://cdn.discordapp.com/attachments/781284773083480064/856569431031021598/leems_shit_logo.gif") # add to when send button is clicked
-    embed_message = await ctx.send( # When embed is send at the end add redirect button with invite link to frk marketplace
-        embed = start_embed,
-        components = [
-            [Button(label = "Title"), Button(label = "Description"), Button(label = "Add Field")],
-            [Button(label = "Send", style = ButtonStyle.green),Button(label = "Stop", style = ButtonStyle.red)],
-        ]
-    )
-    def check(message):
-        print()
-        return message.content != ''
-
-    async def func_title():
-        while True:
-            interaction = await client.wait_for("button_click", check = lambda i: i.component.label.startswith("Title"))
-            await interaction.respond(content = "Within the next 10 seconds provide a title for the embed")
-            msg = await client.wait_for('message', check=check, timeout=10)
-            embed_title = msg.content
-            start_embed = discord.Embed(title=f'{embed_title}', description=f"{embed_description}")
-            start_embed.set_thumbnail(url="https://cdn.discordapp.com/attachments/781284773083480064/856569431031021598/leems_shit_logo.gif")
-            await embed_message.edit(embed=start_embed)
-
-    async def func_description():
-        while True:
-            interaction = await client.wait_for("button_click", check = lambda i: i.component.label.startswith("Description"))
-            await interaction.respond(content = "Within the next 10 seconds provide a description for the embed")
-
-    await func_title()
-    await func_description()
 
 @client.event
 async def on_raw_reaction_add(payload):
@@ -123,24 +85,33 @@ async def on_raw_reaction_add(payload):
             if payload.member.id == 810906858041770004:
                 return
             else:
-                await payload.message.add_reaction('✅')
+                embed = discord.Embed()
+                embed = discord.Embed(description='React with ✅ below to close ticket')
+                confirmMessage = await payloadChannel.send(embed=embed)
+                await confirmMessage.add_reaction("✅")
         elif payload.emoji.name == "✅":
             if payload.member.id == 810906858041770004:
                 return
             else:
-                embed = discord.Embed(description='Ticket will close shortly')
+                embed = discord.Embed(description='Ticket will close in 5 seconds')
                 await payloadChannel.send(embed=embed)
-                ticket_maker = await payloadChannel.history(limit=1, oldest_firste=True)
-                limit = None
-                transcript = await chat_exporter.export(payloadChannel, limit)
-                transcript_file = discord.File(io.BytesIO(transcript.encode()),filename=f"transcript-{payloadChannel.name}.html")
-                transcriptChannel = client.get_channel(835214538004889600)
-                embed = discord.Embed(title=f'{payloadChannel.name} closed', description=f"Ticket was closed by {payload.member}", timestamp=datetime.datetime.now())
-                embed.set_footer(text=f"EURT",icon_url="https://cdn.discordapp.com/attachments/737852831838633984/830488037603409960/RUST_TOURNAMENTS.gif")
-                dmUser = guild.get_member(ticket_maker.mentions[0].id)
-                dmChannel = await dmUser.create_dm()
-                await dmChannel.send(embed=embed, file=transcript_file)
-                await transcriptChannel.send(embed=embed, file=transcript_file)
+            #    limit = None
+            #    conversationUsers = []
+            #    async for message in payloadChannel.history(limit=None):
+            #        if message.author.id in conversationUsers or message.author.id == 810906858041770004:
+            #            pass
+            #        else:
+            #            conversationUsers.append(message.author.id)
+            #    transcript = await chat_exporter.export(payloadChannel, limit)
+            #    transcript_file = discord.File(io.BytesIO(transcript.encode()),filename=f"transcript-{payloadChannel.name}.html")
+            #    transcriptChannel = client.get_channel(835214538004889600)
+            #    embed = discord.Embed(title=f'{payloadChannel.name} closed', description=f"Ticket was closed by {payload.member}", timestamp=datetime.datetime.now())
+            #    embed.set_footer(text=f"EURT",icon_url="https://cdn.discordapp.com/attachments/737852831838633984/830488037603409960/RUST_TOURNAMENTS.gif")
+            #   for memberid in conversationUsers:
+            #        dmUser = guild.get_member(memberid)
+            #        dmChannel = await dmUser.create_dm()
+            #        await dmChannel.send(embed=embed, file=transcript_file)
+            #   await transcriptChannel.send(embed=embed)
             await asyncio.sleep(5)
             await payloadChannel.delete()
 
