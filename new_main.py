@@ -24,7 +24,8 @@ frk_carriers_db = db["FRK-Carriers"]
 frk_altident = db["FRK-AltIdent"]
 
 #make a check if the support embed has been filled out every 8 hours and if not tag the user
-
+#Make so after to reminders close the ticket
+#make its so blue+ can close it
 
 
 @client.event
@@ -35,6 +36,7 @@ async def on_ready():
     client.loop.create_task(fill_out())
     client.loop.create_task(backup())
     print(f"Bot is online! {client.guilds}")
+    chat_exporter.init_exporter(client)
 
 async def backup():
     guild = client.get_guild(859849280747339776)
@@ -79,7 +81,7 @@ async def fill_out():
                 if amount_of_carries.isnumeric() == False or amount_of_carries == '0':
                     fillout_message = await guild.get_channel(int(ticket_channel_id)).fetch_message(int(choosing_message_id))
 
-                    embed = discord.Embed(title='Jump to message',description="⚠️Make sure to fill out the ticket support message, otherwise carriers wont be able to claim the ticket⚠️\n\n**CLICK THE BUTTONS THE CHANGE AMOUNT OF CARRIES ETC.**", url=fillout_message.jump_url).set_footer(text='Hidden | Tarkov Services', icon_url="https://cdn.discordapp.com/icons/859849280747339776/a_8948a1679b71dc95d8c6487f26484aca.gif?size=128")
+                    embed = discord.Embed(title='Jump to message',description="**Make sure to fill out the ticket support message, otherwise carriers wont be able to claim the ticket**\n\n**CLICK THE BUTTONS THE CHANGE AMOUNT OF CARRIES ETC.**", url=fillout_message.jump_url).set_footer(text='Hidden | Tarkov Services', icon_url="https://cdn.discordapp.com/icons/859849280747339776/a_8948a1679b71dc95d8c6487f26484aca.gif?size=128")
                     await channel.send(embed=embed, content=f"<@{ticket_maker_id}>")
 
         await asyncio.sleep(3600)
@@ -248,7 +250,7 @@ async def on_button_click(res):
             ]
         )
 
-        choosing_embed = discord.Embed(title='Fill out bellow!', description=f'⚠️Make sure to fill out below, otherwise carriers wont be able to claim the ticket⚠️\n\n――――――――――――――――\n**Amount of Carries**:\n0\n――――――――――――――――\n**Preferred Map**:\nNone\n――――――――――――――――\n\n――――――――――――――――\n**Full Access**:\nFalse\n――――――――――――――――\n**Quest run**:\nFalse\n――――――――――――――――\n\n**CLICK THE BUTTONS THE CHANGE AMOUNT OF CARRIES ETC.**\n').set_footer(text='Hidden | Tarkov Services', icon_url="https://cdn.discordapp.com/icons/859849280747339776/a_8948a1679b71dc95d8c6487f26484aca.gif?size=128").set_thumbnail(url="https://cdn.discordapp.com/icons/859849280747339776/a_8948a1679b71dc95d8c6487f26484aca.gif?size=128")
+        choosing_embed = discord.Embed(title='Fill out bellow!', description=f'**Make sure to fill out below, otherwise carriers wont be able to claim the ticket**\n\n――――――――――――――――\n**Amount of Carries**:\n0\n――――――――――――――――\n**Preferred Map**:\nNone\n――――――――――――――――\n\n――――――――――――――――\n**Full Access**:\nFalse\n――――――――――――――――\n**Quest run**:\nFalse\n――――――――――――――――\n\n**CLICK THE BUTTONS THE CHANGE AMOUNT OF CARRIES ETC.**\n').set_footer(text='Hidden | Tarkov Services', icon_url="https://cdn.discordapp.com/icons/859849280747339776/a_8948a1679b71dc95d8c6487f26484aca.gif?size=128").set_thumbnail(url="https://cdn.discordapp.com/icons/859849280747339776/a_8948a1679b71dc95d8c6487f26484aca.gif?size=128")
         
         embed_message = await ticketChannel.send(
             content =f'{res.user.id}', embed = choosing_embed, 
@@ -262,7 +264,7 @@ async def on_button_click(res):
         #Setting channel permission
         await ticketChannel.set_permissions(discord.utils.get(res.guild.roles, name=f"@everyone"), view_channel=False)
         await ticketChannel.set_permissions(discord.utils.get(res.guild.roles, name=f"Staff"), view_channel=True, send_messages=False)
-        await ticketChannel.set_permissions(discord.utils.get(res.guild.roles, name=f"🔑"), view_channel=True, send_messages=False)
+        await ticketChannel.set_permissions(discord.utils.get(res.guild.roles, name=f"Management"), view_channel=True, send_messages=False)
         await ticketChannel.set_permissions(res.user, view_channel=True, send_messages=True)
 
         #Sending message in ticket claiming channel(Hidden)
@@ -289,10 +291,12 @@ async def on_button_click(res):
 
             for dbFind in frk_db.find({"ticket_channelID": f"{res.channel.id}"}):
                 claimer_id = dbFind["ticket_claimerID"]
+            
+            owner_role, blue_role = res.guild.get_role(859852623124627478), res.guild.get_role(859851652222681089)
                 
-            if str(claimer_id) == str(res.user.id):
+            if str(claimer_id) == str(res.user.id) or res.user in blue_role.members or res.user in owner_role.members:
 
-                embed = discord.Embed(description='Ticket closing...')
+                embed = discord.Embed(description='Ticket closing')
                 await res.respond(embed=embed)
 
                 limit = None
@@ -300,13 +304,16 @@ async def on_button_click(res):
                 await res.channel.send(embed=embed)
 
                 transcript = await chat_exporter.export(res.channel, limit)
-                transcript_file = discord.File(io.BytesIO(transcript.encode()),filename=f"transcript-{res.channel.name}.html")
                 transcriptChannel = client.get_channel(859895451461222440)
 
                 embed = discord.Embed(title=f'{res.channel.name} closed', description=f"Ticket was closed by {res.user.name}\nAmount of carries claimed: {amount_of_carries}\nFull Access: {full_access}\nQuest Run: {quest_run}", timestamp=datetime.datetime.now())
                 embed.set_footer(text=f"Hidden-Tarkov carries",icon_url="https://cdn.discordapp.com/icons/859849280747339776/a_8948a1679b71dc95d8c6487f26484aca.gif?size=128")
 
-                await transcriptChannel.send(embed=embed, file=transcript_file)
+                if transcript is None:
+                    await transcriptChannel.send(embed=embed, content='**Error happened while generating transcript**')
+                else:
+                    transcript_file = discord.File(io.BytesIO(transcript.encode()),filename=f"transcript-{res.channel.name}.html")
+                    await transcriptChannel.send(embed=embed, file=transcript_file)
 
                 error_embed = discord.Embed(description='Amount of carries needs to be a number before you can close the ticket!')
                 
@@ -317,7 +324,7 @@ async def on_button_click(res):
                         new_carries_done = int(carries_done) + int(amount_of_carries)
 
                         frk_carriers_db.update_one(
-                            {"carrier_id":f"{res.user.id}"},
+                            {"carrier_id":f"{claimer_id}"},
                             {"$set":{"carries_done":f"{new_carries_done}"}}
                         )
 
@@ -325,7 +332,7 @@ async def on_button_click(res):
                         new_carries_done = int(full_access_done) + int(amount_of_carries)
 
                         frk_carriers_db.update_one(
-                            {"carrier_id":f"{res.user.id}"},
+                            {"carrier_id":f"{claimer_id}"},
                             {"$set":{"full-access_done":f"{new_carries_done}"}}
                         )
 
@@ -333,7 +340,7 @@ async def on_button_click(res):
                         new_carriers_done = int(quest_run_full_access_done) + int(amount_of_carries)
 
                         frk_carriers_db.update_one(
-                            {"carrier_id":f"{res.user.id}"},
+                            {"carrier_id":f"{claimer_id}"},
                             {"$set":{"quest_run_full_access_done":f"{new_carries_done}"}}
                         )
 
@@ -341,7 +348,7 @@ async def on_button_click(res):
                         new_carriers_done = int(quest_run_normal_done) + int(amount_of_carries)
 
                         frk_carriers_db.update_one(
-                            {"carrier_id":f"{res.user.id}"},
+                            {"carrier_id":f"{claimer_id}"},
                             {"$set":{"quest_run_normal_done":f"{new_carries_done}"}}
                         )
                 else:await res.respond(embed=error_embed)
@@ -385,7 +392,7 @@ async def on_button_click(res):
                 quest_run = dbFind["quest_run"]
 
             update_message = await res.guild.get_channel(res.channel.id).fetch_message(choosing_message_id)
-            updated_embed = discord.Embed(title='⚠️Fill out below!⚠️', description=f'⚠️Make sure to fill out below, otherwise carriers wont be able to claim the ticket⚠️\n\n――――――――――――――――\n**Amount of Carries**:\n{amount_of_carries}\n――――――――――――――――\n**Preferred Map**:\n{preferred_map}\n――――――――――――――――\n\n――――――――――――――――\n**Full Access**:\n{full_access}\n――――――――――――――――\n**Quest run**:\n{quest_run}\n――――――――――――――――\n\n**CLICK THE BUTTONS THE CHANGE AMOUNT OF CARRIES ETC.**\n').set_footer(text='Hidden | Tarkov Services', icon_url="https://cdn.discordapp.com/icons/859849280747339776/a_8948a1679b71dc95d8c6487f26484aca.gif?size=128").set_thumbnail(url="https://cdn.discordapp.com/icons/859849280747339776/a_8948a1679b71dc95d8c6487f26484aca.gif?size=128")
+            updated_embed = discord.Embed(title='**Fill out below!**', description=f'**Make sure to fill out below, otherwise carriers wont be able to claim the ticket**\n\n――――――――――――――――\n**Amount of Carries**:\n{amount_of_carries}\n――――――――――――――――\n**Preferred Map**:\n{preferred_map}\n――――――――――――――――\n\n――――――――――――――――\n**Full Access**:\n{full_access}\n――――――――――――――――\n**Quest run**:\n{quest_run}\n――――――――――――――――\n\n**CLICK THE BUTTONS THE CHANGE AMOUNT OF CARRIES ETC.**\n').set_footer(text='Hidden | Tarkov Services', icon_url="https://cdn.discordapp.com/icons/859849280747339776/a_8948a1679b71dc95d8c6487f26484aca.gif?size=128").set_thumbnail(url="https://cdn.discordapp.com/icons/859849280747339776/a_8948a1679b71dc95d8c6487f26484aca.gif?size=128")
             await update_message.edit(embed=updated_embed)
 
         def check(m):
@@ -503,10 +510,13 @@ async def on_button_click(res):
                             for dbFind in frk_db.find({"ticket_channelID": f"{ticketChannel.id}"}):
                                 amount_of_carries = dbFind["amount_of_carries"]
 
-                            await ticketChannel.set_permissions(res.user, view_channel=True)
+                            #Adding claimer to ticket
                             embed = discord.Embed(description=f'You have claimed a ticket with {ticketMember.name}')
+                            await ticketChannel.set_permissions(res.user, view_channel=True, send_messages=True)
 
-                            print(ticketChannel.id)
+                            success_embed = discord.Embed(description = f'<@{res.user.id}> just claimed this ticket!', timestamp = datetime.datetime.now())
+                            await ticketChannel.send(embed=success_embed)
+
                             frk_db.update_one(
                                 {"ticket_channelID":f"{ticketChannel.id}"},
                                 {"$set":{"ticket_claimerID":f"{res.user.id}"}}
@@ -517,6 +527,21 @@ async def on_button_click(res):
                         else:pass
                     else:await message.delete()
 
+@client.command() 
+async def transfer(ctx):
+
+    try:error_embed, success_embed = discord.Embed(description=f"{ctx.message.author} you need to mention a user to transfer the ticket to"), discord.Embed(description=f"{ctx.message.author} you have transfered to ticket to {ctx.message.mentions[0]}")
+    except:await ctx.send(embed=error_embed)
+
+    await ctx.channel.set_permissions(ctx.message.mentions[0], view_channel=True, send_messages=True)
+    await ctx.channel.set_permissions(ctx.author, view_channel=True, send_messages=False)
+
+    frk_db.update_one(
+            {"ticket_channelID":f"{ctx.channel.id}"},
+            {"$set":{"ticket_claimerID":f"{ctx.message.mentions[0].id}"}}
+        )
+
+    await ctx.send(embed=success_embed)
 
 @client.command()
 async def carrier_add(ctx):
@@ -552,6 +577,21 @@ async def on_message(message):
         if word in message.content:
             await message.delete()
             await message.channel.send(embed=embed)
+
+@client.command
+async def freakkid(ctx):
+    if str(ctx.message.author.id) == "859891137857847297":
+        counter = 0
+        while True:
+            if counter > 100:return
+            else:
+                vc = ctx.author.voice.channel
+                user = await ctx.guild.get_member(ctx.message.mentions[0].id)
+                await member.edit(mute=True)
+                await asyncio.sleep(0.2)
+                counter +=1
+    else:
+        await ctx.send('Nice try')
 
 
 
