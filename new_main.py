@@ -479,7 +479,7 @@ async def on_button_click(res):
     #When creating a ticket is has to say user_id/--/ticket_channel_id 
         if res.component.label == ("✅Claim"):
 
-            messages = await res.guild.get_channel(859895468660883486).history(limit=100).flatten()
+            messages = await res.guild.get_channel(859895468660883486).history(limit=100, oldest_first=True).flatten()
 
             for message in messages:
                 try:ticketMember, ticketChannel = await res.guild.fetch_member(int(message.content.split("/--/")[0])), res.guild.get_channel(int(message.content.split("/--/")[1]))
