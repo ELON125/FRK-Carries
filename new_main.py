@@ -1,3 +1,4 @@
+from typing import Text
 import discord
 from discord.ext import commands
 from discord.ext.commands import Bot
@@ -23,9 +24,7 @@ frk_db = db["FRK-Ticket_system"]
 frk_carriers_db = db["FRK-Carriers"]
 frk_altident = db["FRK-AltIdent"]
 
-#make a check if the support embed has been filled out every 8 hours and if not tag the user
-#Make so after to reminders close the ticket
-#make its so blue+ can close it
+#to fix the issue where amount of tickets available is stuck, just itterate through all channels in the catagory and do a database check, if amount of carries isnt zero then + 1
 
 
 @client.event
@@ -90,28 +89,20 @@ async def claim_update():
 
     while True:
         claim_channel = await client.fetch_channel(859895500652150804)
-        claim_message = await claim_channel.fetch_message(859901482493280276)#insert
+        claim_message = await claim_channel.fetch_message(859901482493280276)
 
         guild = client.get_guild(859849280747339776)
 
-        tickets_dont_look = await client.fetch_channel(859895468660883486)
-
-        def still_there_check():
-            return ticketChannel in guild.channels
-
         available_carries = 0
-        async for message in tickets_dont_look.history(limit=500):
-            try:ticketMember, ticketChannel = await guild.fetch_member(str(message.content.split("/--/")[0])), guild.get_channel(int(message.content.split("/--/")[1]))
-            except:pass
-
-            if still_there_check() == True:
-                for dbFind in frk_db.find({"ticket_channelID": f"{ticketChannel.id}"}):
+        async for channel in guild.channels:
+            if frk_db.count_documents({"ticket_channelID": f"{channel.id}"}) > 0:
+                for dbFind in frk_db.find({"ticket_channelID": f"{channel.id}"}):
                     amount_of_carries = dbFind["amount_of_carries"]
+                    ticket_claimerID = dbFind["ticket_claimerID"]
+                if ticket_claimerID.isnumeric() == True or str(amount_of_carries) != '0':pass
+                else:available_carries +=1
+            else:pass
 
-                print(amount_of_carries.isnumeric(), amount_of_carries)
-                if amount_of_carries.isnumeric() == False or amount_of_carries == '0':pass
-                else:available_carries += 1
-            pass
 
         claimCarries_embed = discord.Embed(title='Ticker claiming', description=f'You will recieve the oldest ticket where the ticket maker is online\n\n――――――――――――――――\nAvailable Tickets:\n{available_carries}\n――――――――――――――――\n\nReact below to claim a ticket').set_footer(text='Hidden | Tarkov Services', icon_url="https://cdn.discordapp.com/icons/859849280747339776/a_8948a1679b71dc95d8c6487f26484aca.gif?size=128").set_thumbnail(url="https://cdn.discordapp.com/icons/859849280747339776/a_8948a1679b71dc95d8c6487f26484aca.gif?size=128")
         embed_message = await claim_message.edit(
@@ -130,52 +121,6 @@ async def send(ctx):
         embed = claimCarries_embed, 
         components = [
             [Button(label = "✅Claim")],
-        ]
-    )
-
-@client.command()
-async def test(ctx): # get the below variables from database
-    if frk_db.count_documents({"ticket_makerID": f"{ctx.message.author.id}"}) > 0:
-        for dbFind in frk_db.find({"ticket_makerID": f"{ctx.author.id}"}):
-            amount_of_carries = dbFind["amount_of_carries"]
-            preferred_map = dbFind["preferred_map"]
-            full_access = dbFind["full_access"]
-            ticket_maker_id = dbFind["ticket_makerID"]
-
-
-    test_embed = discord.Embed(title='Ticket Support', description=f'Below you can click the buttons to choose amount of carries/Preferred map etc.\nMake sure to choose what you would like so we can assist you further\n\n――――――――――――――――\n**Amount of Carries**:\n\n――――――――――――――――\n\n――――――――――――――――\n**Preferred Map**:\n\n――――――――――――――――\n\n――――――――――――――――\n**Full Access**:\n\n――――――――――――――――\n').set_footer(text='Hidden | Tarkov Services', icon_url="https://cdn.discordapp.com/icons/859849280747339776/a_8948a1679b71dc95d8c6487f26484aca.gif?size=128").set_thumbnail(url="https://cdn.discordapp.com/icons/859849280747339776/a_8948a1679b71dc95d8c6487f26484aca.gif?size=128")
-    embed_message = await ctx.send(
-        embed = test_embed, content =f'{ctx.message.author.id}', 
-        components = [
-            [Button(label = "📊Carries Amount"), Button(label = "🗺️Preferred Map(Not working rn)")],
-            [Button(label = "🔓Full Access", style = ButtonStyle.green),Button(label = "🔒Normal Access", style = ButtonStyle.red)],
-        ]
-    )
-
-    claimCarries_embed = discord.Embed(title='Ticker claiming', description=f'You will recieve the oldest ticket where the ticket maker is online\nReact below to claim a ticket').set_footer(text='Hidden | Tarkov Services', icon_url="https://cdn.discordapp.com/icons/859849280747339776/a_8948a1679b71dc95d8c6487f26484aca.gif?size=128").set_thumbnail(url="https://cdn.discordapp.com/icons/859849280747339776/a_8948a1679b71dc95d8c6487f26484aca.gif?size=128")
-    embed_message = await ctx.send(
-        embed = claimCarries_embed, 
-        components = [
-            [Button(label = "✅Claim")],
-        ]
-    )
-
-    ticketMake_embed = discord.Embed(title='Hidden | Tarkov Services', description='React below to create a ticket for buying carries\nPlease be patient while waiting for response as we might be busy\n\nTo create at ticket click the button below 📩')
-    ticketMake_embed.set_footer(text='Hidden | Tarkov Services', icon_url='https://cdn.discordapp.com/icons/859849280747339776/a_8948a1679b71dc95d8c6487f26484aca.gif?size=128')
-    embed_message = await ctx.send(
-        embed = ticketMake_embed, 
-        components = [
-            [Button(label = "📩Buy Carry")],
-        ]
-    )
-
-    ticket_embed = discord.Embed(title='Hidden | Tarkov Services', description=f"Staff member will be with you shortly")
-    ticket_embed.add_field(name="\nClosing the ticket", value="To close the ticket react with 🔒", inline=False)
-    ticket_embed.set_footer(text='Hidden | Tarkov Services', icon_url="https://cdn.discordapp.com/icons/859849280747339776/a_8948a1679b71dc95d8c6487f26484aca.gif?size=128")
-    embed_message = await ctx.send(
-        embed = ticket_embed, 
-        components = [
-            [Button(label = "🔒Close", style = ButtonStyle.green), Button(label = '❌Unclaim', style = ButtonStyle.red)],
         ]
     )
 
@@ -202,6 +147,7 @@ async def on_button_click(res):
             full_access = dbFind["full_access"]
             ticket_channel_id = dbFind["ticket_channelID"]
             quest_run = dbFind["quest_run"]
+            ticket_claimerID = dbFind["ticket_claimerID"]
 
     if frk_carriers_db.count_documents({"carrier_id": f"{res.user.id}"}) > 0:
         for dbFind in frk_carriers_db.find({"carrier_id": f"{res.user.id}"}):
@@ -306,7 +252,7 @@ async def on_button_click(res):
                 transcript = await chat_exporter.export(res.channel, limit)
                 transcriptChannel = client.get_channel(859895451461222440)
 
-                embed = discord.Embed(title=f'{res.channel.name} closed', description=f"Ticket was closed by {res.user.name}\nAmount of carries claimed: {amount_of_carries}\nFull Access: {full_access}\nQuest Run: {quest_run}", timestamp=datetime.datetime.now())
+                embed = discord.Embed(title=f'{res.channel.name} closed', description=f"Ticket was closed by {res.user.name}\nClaiming carrier: {res.guild.fetch_member(ticket_claimerID)}\nAmount of carries claimed: {amount_of_carries}\nFull Access: {full_access}\nQuest Run: {quest_run}", timestamp=datetime.datetime.now())
                 embed.set_footer(text=f"Hidden-Tarkov carries",icon_url="https://cdn.discordapp.com/icons/859849280747339776/a_8948a1679b71dc95d8c6487f26484aca.gif?size=128")
 
                 if transcript is None:
@@ -407,19 +353,23 @@ async def on_button_click(res):
             embed = discord.Embed(description='How many carries would you like?: (If you include letters the message will be ignored)')
             await res.respond(embed=embed)
             response = await client.wait_for("message", check=int_check)
-            frk_db.update_one(
-                {"ticket_channelID":f"{ticket_channel_id}"},
-                {"$set":{"amount_of_carries":f"{response.content}"}}
-            )
             if response.content.isnumeric():
-                embed = discord.Embed(description=f"{res.user}'s ticket is ready for claiming!", timestamp=datetime.datetime.now())
+                frk_db.update_one(
+                    {"ticket_channelID":f"{ticket_channel_id}"},
+                    {"$set":{"amount_of_carries":f"{response.content}"}}
+                )
+                if str(amount_of_carries) == '0':
+                    embed = discord.Embed(description=f"{res.user}'s ticket is ready for claiming!", timestamp=datetime.datetime.now())
 
-                await res.guild.get_channel(861649139606224916).send(content=f'<@&861650196596523009>', embed=embed)
+                    await res.guild.get_channel(861649139606224916).send(content=f'<@&861650196596523009>', embed=embed)
+            else:
+                error_embed = discord.Embed(description='Try again and respond with a number instead of letter')
+                res.respond(embed=error_embed)
 
             await update_embed()
         else: 
             if str(res.user.id) != str(ticket_maker_id):await res.respond(content='Only the ticket owner can user this feature!')
-
+            return
 
         if str(res.channel.id) == str(ticket_channel_id) and str(res.user.id) == str(ticket_maker_id) and res.component.label.startswith("🗺️Preferred Map(Not working rn)"):
             return
@@ -433,6 +383,7 @@ async def on_button_click(res):
             await update_embed()
         else:
             if str(res.user.id) != str(ticket_maker_id):await res.respond(content='Only the ticket owner can user this feature!')
+            return
 
         if str(res.channel.id) == str(ticket_channel_id) and res.component.label.startswith("🔓Full Access"):
             embed = discord.Embed(description='Full Access change to True')
@@ -577,22 +528,6 @@ async def on_message(message):
         if word in message.content:
             await message.delete()
             await message.channel.send(embed=embed)
-
-@client.command
-async def freakkid(ctx):
-    if str(ctx.message.author.id) == "859891137857847297":
-        counter = 0
-        while True:
-            if counter > 100:return
-            else:
-                vc = ctx.author.voice.channel
-                user = await ctx.guild.get_member(ctx.message.mentions[0].id)
-                await member.edit(mute=True)
-                await asyncio.sleep(0.2)
-                counter +=1
-    else:
-        await ctx.send('Nice try')
-
 
 
 @client.event
