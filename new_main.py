@@ -1,6 +1,6 @@
 from typing import Text
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord.ext.commands import Bot
 import asyncio
 from discord.ext.commands import has_permissions
@@ -31,18 +31,15 @@ frk_altident = db["FRK-AltIdent"]
 async def on_ready():
     await client.change_presence(activity=discord.Game('Hidden | EFT'))
     DiscordComponents(client)
-    client.loop.create_task(claim_update())
-    client.loop.create_task(fill_out())
+    claim_update.start()
+    fill_out.start()
     print(f"Bot is online! {client.guilds}")
     chat_exporter.init_exporter(client)
 
-
+@tasks.loop(count = None)
 async def fill_out():
-
-    guild = client.get_guild(859849280747339776)
-
-    while True:
-
+        print('working')
+        guild = client.get_guild(859849280747339776)
         for channel in discord.utils.get(guild.categories, id=859873002858086410).channels:
 
             if frk_db.count_documents({"ticket_channelID": f"{channel.id}"}) > 0:
@@ -64,9 +61,8 @@ async def fill_out():
 
         await asyncio.sleep(3600)
 
+@tasks.loop(count = None)
 async def claim_update():
-
-    while True:
         claim_channel = await client.fetch_channel(859895500652150804)
         claim_message = await claim_channel.fetch_message(859901482493280276)
 
@@ -408,6 +404,10 @@ async def on_button_click(res):
     if res.channel.name.startswith("claim-carry"):
     #When creating a ticket is has to say user_id/--/ticket_channel_id 
         if res.component.label == ("✅Claim"):
+            print('got here')
+            loading_embed = discord.Embed(description = f'Looking for available ticket ⌛', timestamp = datetime.datetime.now())
+            reponse_edit = await res.respond(embed=loading_embed)
+            print(reponse_edit)
             for channel in res.guild.channels:
                 if frk_db.count_documents({"ticket_channelID": f"{channel.id}"}) > 0:
                     for dbFind in frk_db.find({"ticket_channelID": f"{channel.id}"}):
@@ -419,19 +419,22 @@ async def on_button_click(res):
                         ticket_channel_id = dbFind["ticket_channelID"]
                         quest_run = dbFind["quest_run"]
                         ticket_claimerID = dbFind["ticket_claimerID"]
+                    print(amount_of_carries, ticket_claimerID, channel)
                     if amount_of_carries != '0' and ticket_claimerID == 'None':
                         embed = discord.Embed(description=f'You have claimed a ticket: {channel.name}')
                         await channel.set_permissions(res.user, view_channel=True, send_messages=True)
 
-                        success_embed = discord.Embed(description = f'<@{res.user.id}> just claimed this ticket!', timestamp = datetime.datetime.now())
+                        success_embed = discord.Embed(description = f'<@{res.user.id}> just claimed this ticket! <#{channel.id}>', timestamp = datetime.datetime.now())
                         await channel.send(embed=success_embed)
 
                         frk_db.update_one(
                             {"ticket_channelID":f"{channel.id}"},
                             {"$set":{"ticket_claimerID":f"{res.user.id}"}}
                         )
-
-                        await res.respond(embed=embed)
+                        claimed_response = await res.message.reply(embed=success_embed)
+                        await asyncio.sleep(5)
+                        await claimed_response.delete()
+                        return
                     else:pass
                 else:pass
 
@@ -504,5 +507,7 @@ async def on_raw_reaction_add(payload):
 @commands.has_permissions(ban_members=True, kick_members=True)
 async def clear(message, amount = 5):
 	await message.channel.purge(limit=amount)
+
+
 
 client.run('ODU5ODk1ODk1NTgyODM0Njk4.YNzWdQ.Qn6hMgE5Z8Ha9EuLYs5WuCf-_5Q')
