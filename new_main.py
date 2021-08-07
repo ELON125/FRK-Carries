@@ -408,52 +408,34 @@ async def on_button_click(res):
     if res.channel.name.startswith("claim-carry"):
     #When creating a ticket is has to say user_id/--/ticket_channel_id 
         if res.component.label == ("✅Claim"):
+            for channel in res.guild.channels:
+                if frk_db.count_documents({"ticket_channelID": f"{channel.id}"}) > 0:
+                    for dbFind in frk_db.find({"ticket_channelID": f"{channel.id}"}):
+                        ticket_maker_id = dbFind["ticket_makerID"]
+                        choosing_message_id = dbFind["choosing_messageID"]
+                        amount_of_carries = dbFind["amount_of_carries"]
+                        preferred_map = dbFind["preferred_map"]
+                        full_access = dbFind["full_access"]
+                        ticket_channel_id = dbFind["ticket_channelID"]
+                        quest_run = dbFind["quest_run"]
+                        ticket_claimerID = dbFind["ticket_claimerID"]
+                    if amount_of_carries != '0' and ticket_claimerID == 'None':
+                        embed = discord.Embed(description=f'You have claimed a ticket: {channel.name}')
+                        await channel.set_permissions(res.user, view_channel=True, send_messages=True)
 
-            messages = await res.guild.get_channel(859895468660883486).history(limit=100, oldest_first=True).flatten()
+                        success_embed = discord.Embed(description = f'<@{res.user.id}> just claimed this ticket!', timestamp = datetime.datetime.now())
+                        await channel.send(embed=success_embed)
 
-            for message in messages:
-                ticketMember, ticketChannel = res.guild.get_member(int(message.content.split("/--/")[0])), res.guild.get_channel(int(message.content.split("/--/")[1]))
-                if ticketMember == None:
-                    pass
-                else:
-                    if frk_db.count_documents({"ticket_makerID": f"{ticketMember.id}"}) > 0:
-                        for dbFind in frk_db.find({"ticket_makerID": f"{ticketMember.id}"}):
-                            amount_of_carries = dbFind["amount_of_carries"]
-                            ticket_claimerID = dbFind["ticket_claimerID"]
+                        frk_db.update_one(
+                            {"ticket_channelID":f"{channel.id}"},
+                            {"$set":{"ticket_claimerID":f"{res.user.id}"}}
+                        )
 
-                    def still_there_check():
-                        try:
-                            return ticketChannel in res.guild.channels
-                        except:pass
+                        await res.respond(embed=embed)
+                    else:pass
+                else:pass
 
-                    def filled_out_check():
-                        try:
-                            return int(amount_of_carries) > 0 and ticketMember in res.guild.members
-                        except:pass
-
-                    if still_there_check() == True:
-                        if filled_out_check() == True and ticket_claimerID == 'None':
-                            await message.delete()
-
-                            for dbFind in frk_db.find({"ticket_channelID": f"{ticketChannel.id}"}):
-                                amount_of_carries = dbFind["amount_of_carries"]
-
-                            #Adding claimer to ticket
-                            embed = discord.Embed(description=f'You have claimed a ticket with {ticketMember.name}')
-                            await ticketChannel.set_permissions(res.user, view_channel=True, send_messages=True)
-
-                            success_embed = discord.Embed(description = f'<@{res.user.id}> just claimed this ticket!', timestamp = datetime.datetime.now())
-                            await ticketChannel.send(embed=success_embed)
-
-                            frk_db.update_one(
-                                {"ticket_channelID":f"{ticketChannel.id}"},
-                                {"$set":{"ticket_claimerID":f"{res.user.id}"}}
-                            )
-
-                            await res.respond(embed=embed)
-                            return
-                        else:pass
-                    else:await message.delete()
+                        
 
 @client.command() 
 async def transfer(ctx):
